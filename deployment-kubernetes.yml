@@ -1,0 +1,158 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whatsapp-backend
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: whatsapp-backend-marketing
+  template:
+    metadata:
+      labels:
+        app: whatsapp-backend-marketing
+    spec:
+      containers:
+        - name: backend
+          image: sistemascsjt/whatsapp-backend-marketing
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DB_HOST
+              value: "192.168.1.230"
+            - name: DB_USER
+              value: "sa"
+            - name: DB_PASS
+              value: "CL1N1C4S4NJUD4ST4D30*2024"
+            - name: DB_NAME
+              value: "dbWhatsapp_marketing"
+            - name: JWT_SECRET
+              value: "3123123213123"
+            - name: JWT_REFRESH_SECRET
+              value: "75756756756"
+            - name: DB_DIALECT
+              value: "mssql"
+            - name: BACKEND_URL
+              value: "http://localhost:3000"
+            - name: FRONTEND_URL
+              value: "http://frontend-loadbalancer:80"
+            - name: PROXY_PORT
+              value: "8080"
+            - name: CHROME_ARGS
+              value: "--no-sandbox --disable-setuid-sandbox"
+            - name: TZ
+              value: "America/Lima"   
+          resources: # Resource requests and limits for backend
+            requests:
+              cpu: "1000m"
+              memory: "1024Mi"
+            limits:
+              cpu: "2000m"
+              memory: "4096Mi"
+          volumeMounts:
+            - name: public-data
+              mountPath: /usr/src/app/public
+            - name: auth-data
+              mountPath: /usr/src/app/.wwebjs_auth
+      volumes:
+        - name: public-data
+          hostPath:
+            path: /data/whatsapp-backend/public
+            type: DirectoryOrCreate
+        - name: auth-data
+          hostPath:
+            path: /data/whatsapp-backend/.wwebjs_auth
+            type: DirectoryOrCreate
+        - name: cache-data
+          hostPath:
+            path: /data/whatsapp-backend/.wwebjs_cache
+            type: DirectoryOrCreate 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: monitoring
+spec:
+  type: NodePort
+  selector:
+    app: whatsapp-backend-marketing
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      nodePort: 30080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whatsapp-frontend
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: whatsapp-frontend-marketing
+  template:
+    metadata:
+      labels:
+        app: whatsapp-frontend-marketing
+    spec:
+      containers:
+        - name: frontend
+          image: sistemascsjt/whatsapp-frontend-marketing
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+          env:
+            - name: URL_BACKEND
+              value: "backend-service:3000"
+            - name: REACT_APP_BACKEND_URL
+              value: "http://192.168.1.55:30080"
+          resources: # Resource requests and limits for frontend
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1024Mi"
+          volumeMounts:
+            - name: ssl-certs
+              mountPath: /etc/nginx/ssl/
+            - name: ssl-www
+              mountPath: /var/www/letsencrypt/
+      volumes:
+        - name: ssl-certs
+          emptyDir: {}
+        - name: ssl-www
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: monitoring
+spec:
+  type: NodePort
+  selector:
+    app: whatsapp-frontend-marketing
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: 31080 # You can choose an available port in the NodePort range (30000-32767)
+    - name: https
+      port: 443
+      targetPort: 443
+      nodePort: 31443 # Choose another available port in the NodePort range
