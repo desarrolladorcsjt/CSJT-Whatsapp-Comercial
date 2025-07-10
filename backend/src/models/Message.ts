@@ -34,21 +34,22 @@ class Message extends Model<Message> {
   @Column(DataType.TEXT)
   body: string;
 
-@Column(DataType.STRING)
-get mediaUrl(): string | null {
-  const raw = this.getDataValue("mediaUrl");
-  if (!raw) return null;
+  @Column(DataType.STRING)
+  get mediaUrl(): string | null {
+    const raw = this.getDataValue("mediaUrl");
+    if (!raw) return null;
 
-  // Asegurarnos de que BACKEND_URL empiece con http:// o https://
-  let base = process.env.BACKEND_URL ?? "";
-  if (!base.startsWith("http://") && !base.startsWith("https://")) {
-    base = `http://${base}`;
+    const host = process.env.MEDIA_HOST ?? "localhost";
+    const port = process.env.MEDIA_PORT ?? "3000";
+
+    let base = host;
+    if (!base.startsWith("http://") && !base.startsWith("https://")) {
+      base = `http://${base}`;
+    }
+
+    return `${base}:${port}/public/${raw}`;
   }
 
-  const port = process.env.PROXY_PORT;
-  // Construimos la URL completa
-  return `${base}:${port}/public/${raw}`;
-}
 
 
   // @Column(DataType.STRING)
